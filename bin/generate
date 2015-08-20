@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+import dashi.generator
+
+def main():
+    dashi.generator.go()
+
+if __name__ == '__main__':
+    main()
