@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+import dashi.server
+
+def main():
+    dashi.server.run()
+
+if __name__ == '__main__':
+    main()
