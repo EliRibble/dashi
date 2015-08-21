@@ -79,7 +79,7 @@ class Bitbucket(Repo):
 @asyncio.coroutine
 def get_all_commits(config):
     results = {}
-    for repo in config.repository:
+    for repo in config.respositories:
         commits = yield from get_commits(config, repo)
         results[repo] = commits
     return results
@@ -101,7 +101,7 @@ def get_all_commits_simultaneously(config):
         results[name] = future.result()
 
     coroutines = []
-    for repo in config.repository:
+    for repo in config.respositories:
         coro = asyncio.async(get_commits(config, repo))
         coro.add_done_callback(functools.partial(_on_done, repo))
         coroutines.append(coro)

@@ -13,7 +13,7 @@ def parse():
     parser.add('--template-path', help='The location to the template files we need to generate stuff')
     parser.add('--output-path', help='The location to output the statically generated files to')
 
-    parser.add('--repository', action='append', help='The repositories to scan for information')
+    parser.add('--repositories', action='append', help='The repositories to scan for information')
 
     parsed = parser.parse_args()
     return parsed
