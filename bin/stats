@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+import argparse
+import bdb
+import dashi.config
+import dashi.stats
+import logging
+import pdb
+import sys
+
+def info(type, value, tb):
+    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+        sys.__excepthook__(type, value, tb)
+    else:
+        import traceback
+        traceback.print_exception(type, value, tb)
+        pdb.pm()
+sys.excepthook = info
+
+def _get_user(config, username):
+    matches = []
+    for user in config['users']:
+        for alias in user.aliases:
+            if username in alias and user not in matches:
+                matches.append(user)
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise Exception("Username '{}' matched {}".format(username, ', '.join([m['name'] for m in matches])))
+    else:
+        raise Exception("Unable to match user '{}'".format(username))
+
+
+def main():
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('author', help='The author to show stats for')
+    args = parser.parse_args()
+
+    config = dashi.config.parse()
+    user = _get_user(config, args.author)
+    try:
+        dashi.stats.show_stats_for(user)
+    except bdb.BdbQuit:
+        pass
+
+if __name__ == '__main__':
+    main()
