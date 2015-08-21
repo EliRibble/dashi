@@ -1,8 +1,31 @@
 #!/usr/bin/env python
+import asyncio
+import bdb
 import dashi.generator
+import logging
+import pdb
+import sys
+
+def info(type, value, tb):
+    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+        sys.__excepthook__(type, value, tb)
+    else:
+        import traceback
+        traceback.print_exception(type, value, tb)
+        pdb.pm()
+sys.excepthook = info
 
 def main():
-    dashi.generator.go()
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(dashi.generator.go())
+    except bdb.BdbQuit:
+        pass
+    loop.close()
+
 
 if __name__ == '__main__':
     main()
