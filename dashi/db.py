@@ -39,33 +39,37 @@ def get_all_authors(connection):
     result = cursor.execute("SELECT DISTINCT author FROM commits")
     return [r[0] for r in result]
 
+def get_commit_counts_by_time_periods(connection, periods, user):
+    return [{
+        'start' : period[0],
+        'end'   : period[1],
+        'total' : _total_commits(connection, period[0], period[1]),
+        'mine'  : _commits_for(connection, period[0], period[1], user),
+    } for period in periods]
+
+def _total_commits(connection, start, end):
+    cursor = connection.cursor()
+    result = cursor.execute(
+        "SELECT hash FROM commits WHERE datetime(date) > datetime(?) AND datetime(date) < (?)",
+        (start.isoformat(), end.isoformat())
+    )
+    return len(result.fetchall())
+
+def _as_list(l):
+    items = ["'{}'".format(i) for i in l]
+    return "({})".format(','.join(items))
+
+def _commits_for(connection, start, end, user):
+    cursor = connection.cursor()
+    result = cursor.execute(
+        "SELECT hash FROM commits WHERE datetime(date) > datetime(?) AND datetime(date) < (?) AND author IN {}".format(_as_list(user.aliases)),
+        (start.isoformat(), end.isoformat())
+    )
+    return len(result.fetchall())
+
 def _create_tables(conn):
     c = conn.cursor()
     c.execute("""CREATE TABLE commits
         (date TEXT, hash TEXT, author TEXT, repository TEXT)""")
 
     conn.commit()
-
-def _commits_by_author(commits):
-    result = collections.defaultdict(lambda: [])
-    for commit in commits:
-        result[commit['author']['user']['display_name']].append(commit)
-    return result
-
-def _commit_counts_by_week(commits):
-    start = datetime.datetime(2015, 8, 1, 0, 0, 0, 1)
-    periods = dashi.time.checkpoints_since(start)
-    authors = {commit['author']['user']['display_name'] for commit in commits}
-    result = [{
-        'start'     : start,
-        'end'       : end,
-        'counts'    : [{author: 0 for author in authors}],
-    } for start, end in periods]
-    for commit in commits:
-        date = datetime.datetime.strptime(commit['date'], "%Y-%m-%dT%H:%M:%S+00:00")
-        for period in result:
-            if period['start'] < date and period['end'] > date:
-                author = commit['author']['user']['display_name']
-                period['counts'][author] += 1
-    return result
-

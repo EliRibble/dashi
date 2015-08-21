@@ -43,7 +43,7 @@ class Bitbucket(Repo):
             raise Exception("Invalid name {} for {}".format(name, fulname))
         self.name    = name
         self.owner   = owner
-        self.auth = (config.bitbucket_username, config.bitbucket_password)
+        self.auth = (config['bitbucket']['username'], config['bitbucket']['password'])
 
 
     @asyncio.coroutine
@@ -79,16 +79,16 @@ class Bitbucket(Repo):
 @asyncio.coroutine
 def get_all_commits(config):
     results = {}
-    for repo in config.respositories:
+    for repo in config['respositories']:
         commits = yield from get_commits(config, repo)
         results[repo] = commits
     return results
 
 @asyncio.coroutine
-def get_commits(config, repo):
-    repotype, _, name = repo.partition(':')
-    repo = dashi.git.repo(config, repotype, name)
-    commits = yield from repo.get_commits()
+def get_commits(config, reponame):
+    repotype, _, name = reponame.partition(':')
+    _repo = repo(config, repotype, name)
+    commits = yield from _repo.get_commits()
     return commits
 
 @asyncio.coroutine
@@ -101,7 +101,7 @@ def get_all_commits_simultaneously(config):
         results[name] = future.result()
 
     coroutines = []
-    for repo in config.respositories:
+    for repo in config['respositories']:
         coro = asyncio.async(get_commits(config, repo))
         coro.add_done_callback(functools.partial(_on_done, repo))
         coroutines.append(coro)
