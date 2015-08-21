@@ -21,9 +21,9 @@ def load():
 
     _create_tables(conn)
 
-    commits = yield from dashi.git.get_all_commits(config)
     cursor = conn.cursor()
-    for repo, commits in commits.items():
+    for repo in config['repositories']:
+        commits = yield from dashi.git.get_commits(config, repo)
         simplified = [(
             commit['date'],
             commit['hash'],
