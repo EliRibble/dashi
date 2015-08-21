@@ -14,6 +14,6 @@ def checkpoints_since(start):
     result = []
     in_a_week = datetime.timedelta(days=7)
     while timepoint < now + in_a_week:
-        result.append((timepoint, timepoint + in_a_week))
+        result.append(get_checkpoint(timepoint))
         timepoint = timepoint + in_a_week
     return result
