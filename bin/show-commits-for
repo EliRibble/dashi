@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+import argparse
+import dateutil.parser
+import dashi.config
+import dashi.time
+import datetime
+import logging
+import os
+import pdb
+import re
+import subprocess
+import sys
+
+def info(type, value, tb):
+    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+        sys.__excepthook__(type, value, tb)
+    else:
+        import traceback
+        traceback.print_exception(type, value, tb)
+        pdb.pm()
+sys.excepthook = info
+
+
+LOGGER = logging.getLogger('overview-by-date')
+
+def _checkout_master():
+    command = ['git', 'checkout', 'master']
+    subprocess.check_output(command, stderr=subprocess.STDOUT)
+
+FILE_PATTERN = re.compile(r"(?P<files>\d+) file(s)? changed")
+INSERT_PATTERN = re.compile(r"(?P<inserts>\d+) insertion(s)?\(\+\)")
+DELETE_PATTERN = re.compile(r"(?P<deletes>\d+) deletion(s)?\(\-\)")
+def _add_stats(commit, line):
+    matches = [
+        FILE_PATTERN.search(line),
+        INSERT_PATTERN.search(line),
+        DELETE_PATTERN.search(line),
+    ]
+    if not any(matches):
+        raise Exception("Can't get stats from {}".format(line))
+    commit['files']   = int(matches[0].group('files'))
+    commit['inserts'] = int(matches[1].group('inserts')) if matches[1] else 0
+    commit['deletes'] = int(matches[2].group('deletes')) if matches[2] else 0
+
+def _parse_commits(output):
+    lines = output.split('\n')
+    commits = []
+    commit = {}
+    for line in lines:
+        if not line:
+            if commit:
+                commits.append(commit)
+            commit = {}
+        elif line.startswith(' '):
+            _add_stats(commit, line)
+        elif line.startswith('"'):
+            line = line[1:-1]
+            _hash, _datetime, _author = line.split(' ')
+            commit['hash']     = _hash
+            commit['datetime'] = dateutil.parser.parse(_datetime)
+            commit['author']   = _author
+        else:
+            raise Exception("Unrecognized line {}".format(line))
+    return commits
+
+def _get_commits(path, start, end):
+    os.chdir(path)
+    _checkout_master()
+    command = [
+            'git',
+            'log',
+            '--pretty=format:"%h %aI %aE"',
+            '--shortstat',
+            '--after={}'.format(start.isoformat()),
+            '--before={}'.format(end.isoformat())]
+    LOGGER.debug(" ".join(command))
+    output = subprocess.check_output(command)
+    output = output.decode('utf-8')
+    return _parse_commits(output)
+
+def _check_author(config, commits):
+    for commit in commits:
+        found = False
+        for user in config['users']:
+            if commit['author'] in user.aliases:
+                found = True
+                break
+        if not found:
+            LOGGER.warn("Unable to find matching user for %s", commit['author'])
+
+def _show_commits(config, timepoint, user):
+    start, end = dashi.time.get_checkpoint(timepoint)
+    LOGGER.debug("Working %s to %s for %s", start, end, timepoint)
+    for repo in config['repositories']:
+        path = os.path.join(config['repositoryroot'], repo['name'])
+        if not os.path.exists(path):
+            LOGGER.warning("Cannot get commits from %s", repo['name'])
+            continue
+        commits = _get_commits(path, start, end)
+        _check_author(config, commits)
+        my_commits = [commit for commit in commits if commit['author'] in user.aliases]
+        for commit in my_commits:
+            print('\t'.join([
+                commit['datetime'].isoformat(' ')[:-6],
+                repo['name'],
+                str(commit['inserts']),
+                str(commit['deletes']),
+            ]))
+
+def main():
+    logging.basicConfig()
+    LOGGER.setLevel(logging.INFO)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('user', help='The user to get commits for')
+    args = parser.parse_args()
+
+    config = dashi.config.parse()
+    user = dashi.config.get_user(config, args.user)
+
+    timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
+    now = datetime.datetime.utcnow()
+    print("DateTime\tProject\tInserts\tDeletes")
+    while timepoint < now + datetime.timedelta(days=7):
+        _show_commits(config, timepoint, user)
+        timepoint = timepoint + datetime.timedelta(days=7)
+
+if __name__ == '__main__':
+    main()
