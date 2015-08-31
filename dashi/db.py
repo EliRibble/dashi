@@ -21,19 +21,39 @@ def load():
     conn = connection()
 
     _create_tables(conn)
+    yield from _load_commits(conn, config)
+    #yield from _load_jenkins(conn, config)
 
-    cursor = conn.cursor()
+@asyncio.coroutine
+def _load_commits(connection, config):
+    cursor = connection.cursor()
     for repo in config['repositories']:
         commits = yield from dashi.git.get_commits(config, repo)
         simplified = [(
             commit['date'],
             commit['hash'],
             commit['author']['user']['display_name'] if 'user' in commit['author'] else commit['author']['raw'],
-            repo)
+            commit['repository']['name'])
         for commit in commits]
-        cursor.executemany("INSERT INTO commits VALUES (?,?,?,?)", simplified)
-        conn.commit()
+        cursor.executemany("INSERT INTO commits (date, hash, author, repository, lines) VALUES (?,?,?,?)", simplified)
+        connection.commit()
         LOGGER.debug("Inserted %s rows into commits for %s", len(simplified), repo)
+
+@asyncio.coroutine
+def _load_jenkins(connection, config):
+    cursor = connection.cursor()
+    server = dashi.jenkins.connect(config)
+    for repo in config['repositories']:
+        results = dashi.jenkins.get_test_results_for_repo(server, repo)
+        simplified = [(
+            result['name'],
+            result['build'],
+            result['date'],
+            len(result['tests']),
+        ) for result in results]
+        cursor.executemany("INSERT INTO tests (name, build, date, tests) VALUES (?, ?, ?, ?)", simplified)
+        connection.commit()
+        LOGGER.debug("Inserted %s rows into tests for %s", len(simplified), repo['name'])
 
 def get_all_authors(connection):
     cursor = connection.cursor()
@@ -71,6 +91,7 @@ def _commits_for(connection, start, end, user):
 def _create_tables(conn):
     c = conn.cursor()
     c.execute("""CREATE TABLE commits
-        (date TEXT, hash TEXT, author TEXT, repository TEXT)""")
-
+        (date TEXT, hash TEXT, author TEXT, repository TEXT, lines NUMBER)""")
+    c.execute("""CREATE TABLE tests
+        (name TEXT, build NUMBER, date TEXT, tests NUMBER)""")
     conn.commit()
