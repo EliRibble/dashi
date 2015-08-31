@@ -5,6 +5,7 @@ import dateutil
 import json
 import logging
 import os
+import re
 import subprocess
 
 LOGGER = logging.getLogger(__name__)
@@ -109,34 +110,84 @@ def get_all_commits_simultaneously(config):
     yield from asyncio.wait(coroutines)
     return results
 
-def get_commits_after(path, start):
+FILE_PATTERN = re.compile(r"(?P<files>\d+) file(s)? changed")
+INSERT_PATTERN = re.compile(r"(?P<inserts>\d+) insertion(s)?\(\+\)")
+DELETE_PATTERN = re.compile(r"(?P<deletes>\d+) deletion(s)?\(\-\)")
+def _add_stats(commit, line):
+    matches = [
+        FILE_PATTERN.search(line),
+        INSERT_PATTERN.search(line),
+        DELETE_PATTERN.search(line),
+    ]
+    if not any(matches):
+        raise Exception("Can't get stats from {}".format(line))
+    commit['files']   = int(matches[0].group('files'))
+    commit['inserts'] = int(matches[1].group('inserts')) if matches[1] else 0
+    commit['deletes'] = int(matches[2].group('deletes')) if matches[2] else 0
+
+
+def _parse_commits(output):
+    lines = output.split('\n')
+    commits = []
+    commit = {}
+    for line in lines:
+        if not line:
+            if commit:
+                commits.append(commit)
+                commit = {}
+        elif line.startswith(' '):
+            _add_stats(commit, line)
+        elif line.startswith('"') and line.endswith('"'):
+            if commit:
+                commits.append(commit)
+
+            line = line[1:-1]
+            _hash, _datetime, _author = line.split(' ')
+            commit = {
+                'author'    : _author,
+                'datetime'  : dateutil.parser.parse(_datetime),
+                'hash'      : _hash,
+                'files'     : 0,
+                'inserts'   : 0,
+                'deletes'   : 0,
+            }
+        else:
+            raise Exception("Unrecognized line {}".format(line))
+    if commit:
+        commits.append(commit)
+    return commits
+
+def get_commits(config, repo, start, end=None):
+    path = os.path.join(config['repositoryroot'], repo['name'])
     os.chdir(path)
     command = [
-        'git',
-        'log',
-        '--pretty=format:"%h %aI %aE"',
-        '--after={}'.format(start.isoformat())
-    ]
+            'git',
+            'log',
+            '--pretty=format:"%h %aI %aE"',
+            '--shortstat',
+            '--after={}'.format(start.isoformat())]
+    if end is not None:
+        command.append('--before={}'.format(end.isoformat()))
+    #LOGGER.debug(" ".join(command))
     output = subprocess.check_output(command)
     output = output.decode('utf-8')
-    lines = output.split('\n')
-    lines = [line[1:-1] for line in lines]
-    lines = [line.split(' ') for line in lines]
-    lines = [line for line in lines if len(line) == 3]
-    return [{
-        'author'    : _author,
-        'datetime'  : dateutil.parser.parse(_datetime),
-        'hash'      : _hash,
-        'repo'      : path,
-    } for _hash, _datetime, _author in lines]
+    commits = _parse_commits(output)
+    for commit in commits:
+        commit['repo'] = repo['name']
+    return commits
 
 def get_all_commits(config, timepoint):
     all_commits = []
     for repo in config['repositories']:
-        path = os.path.join(config['repositoryroot'], repo['name'])
-        commits = get_commits_after(path, timepoint)
+        commits = get_commits(config, repo, timepoint)
         all_commits += commits
+    _check_unrecognized_commiters(config['users'], all_commits)
     return all_commits
+
+def _check_unrecognized_commiters(users, commits):
+    for commit in commits:
+        if not any([commit['author'] in user.aliases for user in users]):
+            LOGGER.warning("Commit %s did not match any known users", commit)
 
 def commits_between(start, end, all_commits):
     return [commit for commit in all_commits if end > commit['datetime'] > start]

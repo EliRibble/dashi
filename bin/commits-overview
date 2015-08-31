@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import dashi.debugging
 import dashi.config
 import dashi.git
 import dashi.time
@@ -8,53 +9,42 @@ import dateutil.parser
 import jinja2
 import logging
 import os
-import pdb
 import pprint
 import re
 import subprocess
-import sys
-
-def info(type, value, tb):
-    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-        sys.__excepthook__(type, value, tb)
-    else:
-        import traceback
-        traceback.print_exception(type, value, tb)
-        pdb.pm()
-sys.excepthook = info
-
 
 LOGGER = logging.getLogger('overview-by-date')
 
-def _check_unrecognized_commiters(config, commits):
-    for commit in commits:
-        if not any([commit['author'] in user.aliases for user in config['users']]):
-            LOGGER.warning("Commit %s did not match any known users", commit)
-
-def _show_summary(config, timepoint, all_commits):
+def _show_summary(users, timepoint, all_commits):
     start, end = dashi.time.get_checkpoint(timepoint)
-    LOGGER.debug("Working %s to %s for %s", start, end, timepoint)
     commits_between = dashi.git.commits_between(start, end, all_commits)
     row = [end.date().isoformat(), str(len(commits_between))]
-    _check_unrecognized_commiters(config, commits_between)
-    for user in config['users']:
+    for user in users:
         commits = [commit for commit in commits_between if commit['author'] in user.aliases]
         row.append(str(len(commits)))
     print('\t'.join(row))
 
 def main():
     logging.basicConfig()
-    LOGGER.setLevel(logging.INFO)
-    #LOGGER.setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
+    #LOGGER.setLevel(logging.INFO)
+    LOGGER.setLevel(logging.DEBUG)
+    dashi.debugging.install_hook()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--only', help='Only show statistics for the given user')
+    args = parser.parse_args()
 
     config = dashi.config.parse()
-    timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
-    all_commits = dashi.git.get_all_commits(config, timepoint)
-    headers = ['Date', 'Total'] + [user.first_name for user in config['users']]
-    print('\t'.join(headers))
     now = datetime.datetime.utcnow()
+    timepoint = now - datetime.timedelta(days=7*3)
+    start, end = dashi.time.get_checkpoint(timepoint)
+    all_commits = dashi.git.get_all_commits(config, start)
+    users = config['users'] if args.only is None else [dashi.config.get_user(config, args.only)]
+    headers = ['Date', 'Total'] + [user.first_name for user in users]
+    print('\t'.join(headers))
     while timepoint < now + datetime.timedelta(days=7):
-        _show_summary(config, timepoint, all_commits)
+        _show_summary(users, timepoint, all_commits)
         timepoint = timepoint + datetime.timedelta(days=7)
 
 if __name__ == '__main__':
