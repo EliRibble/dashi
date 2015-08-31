@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+import argparse
+import dashi.config
+import dashi.jira
+import dashi.time
+import datetime
+import logging
+import pprint
+import requests
+
+LOGGER = logging.getLogger('jira-summary')
+
+def _get_without_epic(created):
+    without_epic = [issue for issue in created['issues'] if issue['fields']['customfield_10008'] is None]
+    return without_epic
+
+def _get_without_estimate(created):
+    def _has_estimate(issue):
+        return any([issue['fields']['aggregatetimeestimate'],
+                    issue['fields']['aggregatetimeoriginalestimate']])
+
+    without_estimate = [issue for issue in created['issues'] if not _has_estimate(issue)]
+    return without_estimate
+
+def _get_personally_resolved(resolved, user):
+    results = []
+    for issue in resolved['issues']:
+        try:
+            assignee = issue['fields']['assignee']
+            key = assignee['key'] if assignee is not None else None
+            if key == user.config['jirakey']:
+                results.append(issue)
+        except Exception as e:
+            import pdb;pdb.set_trace()
+    return results
+
+def _show_summary(session, timepoint, user):
+    start, end = dashi.time.get_checkpoint(timepoint)
+    created = dashi.jira.issues_created_between(session, start, end)
+    without_epic = _get_without_epic(created)
+    without_estimate = _get_without_estimate(created)
+    resolved = dashi.jira.issues_resolved_between(session, start, end)
+    personal = _get_personally_resolved(resolved, user)
+    print("\t".join([
+        start.date().isoformat(),
+        end.date().isoformat(),
+        str(created['total']),
+        str(resolved['total']),
+        str(len(personal)),
+        str(len(without_estimate)),
+        str(len(without_epic)),
+    ]))
+
+def main():
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger('requests').setLevel(logging.WARN)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('user', help='The user to show stats for')
+    args = parser.parse_args()
+
+    config = dashi.config.parse()
+    user = dashi.config.get_user(config, args.user)
+
+    timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
+    session = dashi.jira.create_session(**config['jira'])
+    print("Start Date\tEnd Date\tCreated\tCompl\tPsnl\tNo est\tNo epic")
+    now = datetime.datetime.utcnow()
+    while timepoint < now + datetime.timedelta(days=7):
+        _show_summary(session, timepoint, user)
+        timepoint = timepoint + datetime.timedelta(days=7)
+
+
+if __name__ == '__main__':
+    main()
