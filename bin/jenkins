@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+import argparse
+import bdb
+import dashi.config
+import dashi.debugging
+import dashi.stats
+import logging
+import pdb
+import sys
+
+def main():
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    dashi.debugging.install_hook()
+
+    config = dashi.config.parse()
+    try:
+        dashi.stats.show_jenkins_stats(config)
+    except bdb.BdbQuit:
+        pass
+
+if __name__ == '__main__':
+    main()
