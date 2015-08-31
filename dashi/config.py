@@ -13,8 +13,12 @@ class User():
         return [self.config['name']] + self.config.get('aliases', [])
 
     @property
+    def name(self):
+        return self.config['name']
+
+    @property
     def first_name(self):
-        return self.config['name'].partition(' ')[0]
+        return self.name.partition(' ')[0]
 
     def __str__(self):
         return 'User {}'.format(self.config['name'])
