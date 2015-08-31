@@ -12,6 +12,16 @@ class User():
     def aliases(self):
         return [self.config['name']] + self.config.get('aliases', [])
 
+    @property
+    def first_name(self):
+        return self.config['name'].partition(' ')[0]
+
+    def __str__(self):
+        return 'User {}'.format(self.config['name'])
+
+    def __repr__(self):
+        return str(self)
+
 def _load_config():
     for path in ['dashi.conf', os.path.join(os.environ['HOME'], '.dashi'), '/etc/dashi.conf']:
         try:
@@ -29,3 +39,18 @@ def parse():
     config['users'] = [User(c) for c in config['users']]
 
     return config
+
+def get_user(config, username):
+    matches = []
+    for user in config['users']:
+        for alias in user.aliases:
+            if username in alias and user not in matches:
+                matches.append(user)
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise Exception("Username '{}' matched {}".format(username, ', '.join([m['name'] for m in matches])))
+    else:
+        raise Exception("Unable to match user '{}'".format(username))
+
+
