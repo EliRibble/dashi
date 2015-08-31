@@ -168,7 +168,7 @@ def get_commits(config, repo, start, end=None):
             '--after={}'.format(start.isoformat())]
     if end is not None:
         command.append('--before={}'.format(end.isoformat()))
-    #LOGGER.debug(" ".join(command))
+    LOGGER.debug("Executing %s in %s", " ".join(command), path)
     output = subprocess.check_output(command)
     output = output.decode('utf-8')
     commits = _parse_commits(output)
