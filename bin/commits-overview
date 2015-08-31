@@ -26,41 +26,6 @@ sys.excepthook = info
 
 LOGGER = logging.getLogger('overview-by-date')
 
-def _get_abspath(repo):
-    return '/Users/eliribble/src/dashi/repos/{}/'.format(repo)
-
-def _get_all_commits(config, timepoint):
-    all_commits = []
-    for repo in config['repositories']:
-        path = os.path.join(config['repositoryroot'], repo['name'])
-        commits = _get_commits_after(path, timepoint)
-        all_commits += commits
-    return all_commits
-
-def _get_commits_after(path, start):
-    os.chdir(path)
-    command = [
-        'git',
-        'log',
-        '--pretty=format:"%h %aI %aE"',
-        '--after={}'.format(start.isoformat())
-    ]
-    output = subprocess.check_output(command)
-    output = output.decode('utf-8')
-    lines = output.split('\n')
-    lines = [line[1:-1] for line in lines]
-    lines = [line.split(' ') for line in lines]
-    lines = [line for line in lines if len(line) == 3]
-    return [{
-        'author'    : _author,
-        'datetime'  : dateutil.parser.parse(_datetime),
-        'hash'      : _hash,
-        'repo'      : path,
-    } for _hash, _datetime, _author in lines]
-
-def _commits_between(start, end, all_commits):
-    return [commit for commit in all_commits if end > commit['datetime'] > start]
-
 def _check_unrecognized_commiters(config, commits):
     for commit in commits:
         if not any([commit['author'] in user.aliases for user in config['users']]):
@@ -69,7 +34,7 @@ def _check_unrecognized_commiters(config, commits):
 def _show_summary(config, timepoint, all_commits):
     start, end = dashi.time.get_checkpoint(timepoint)
     LOGGER.debug("Working %s to %s for %s", start, end, timepoint)
-    commits_between = _commits_between(start, end, all_commits)
+    commits_between = dashi.git.commits_between(start, end, all_commits)
     row = [end.date().isoformat(), str(len(commits_between))]
     _check_unrecognized_commiters(config, commits_between)
     for user in config['users']:
@@ -84,7 +49,7 @@ def main():
 
     config = dashi.config.parse()
     timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
-    all_commits = _get_all_commits(config, timepoint)
+    all_commits = dashi.git.get_all_commits(config, timepoint)
     headers = ['Date', 'Total'] + [user.first_name for user in config['users']]
     print('\t'.join(headers))
     now = datetime.datetime.utcnow()

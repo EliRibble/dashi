@@ -1,6 +1,7 @@
 import asyncio
 import dashi.config
 import dashi.git
+import dashi.jenkins
 import logging
 import os
 import sqlite3
