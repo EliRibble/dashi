@@ -17,30 +17,32 @@ LOGGER = logging.getLogger('overview-by-date')
 
 def main():
     logging.basicConfig()
-    LOGGER.setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.DEBUG)
     dashi.debugging.install_hook()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('user', help='The user to get commits for')
+    parser.add_argument('--only', help='The user to get commits for')
     args = parser.parse_args()
 
     config = dashi.config.parse()
-    user = dashi.config.get_user(config, args.user)
+    users = config['users'] if args.only is None else [dashi.config.get_user(config, args.only)]
 
     now = datetime.datetime.utcnow()
     timepoint = now - datetime.timedelta(days=7)
     start, end = dashi.time.get_checkpoint(timepoint)
     all_commits = dashi.git.get_all_commits(config, start)
-
-    print("DateTime\tProject\tInserts\tDeletes")
-    my_commits = [commit for commit in all_commits if commit['author'] in user.aliases]
-    for commit in my_commits:
-        print('\t'.join([
-            commit['datetime'].isoformat(' ')[:-6],
-            commit['repo'],
-            str(commit['inserts']),
-            str(commit['deletes']),
-        ]))
+    LOGGER.info("Showing commits from {} to {}".format(start, now))
+    for user in users:
+        print("*** {} ***".format(user.name))
+        print("DateTime\tProject\tFiles\tInserts\tDeletes")
+        my_commits = [commit for commit in all_commits if commit['author'] in user.aliases]
+        for commit in my_commits:
+            print('\t'.join([
+                commit['datetime'].isoformat(' ')[:-6],
+                commit['repo'],
+                str(commit['inserts']),
+                str(commit['deletes']),
+            ]))
 
 if __name__ == '__main__':
     main()
