@@ -63,14 +63,20 @@ def main():
     config = dashi.config.parse()
     user = dashi.config.get_user(config, args.user)
 
-    timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
+    now = datetime.datetime.utcnow()
+    timepoint = now - datetime.timedelta(days=7*2)
     session = dashi.jira.create_session(**config['jira'])
     print("Start Date\tEnd Date\tCreated\tCompl\tPsnl\tNo est\tNo epic")
-    now = datetime.datetime.utcnow()
     while timepoint < now + datetime.timedelta(days=7):
         _show_summary(session, timepoint, user)
         timepoint = timepoint + datetime.timedelta(days=7)
 
+    start, end = dashi.time.get_checkpoint(now - datetime.timedelta(days=7))
+    resolved = dashi.jira.issues_resolved_between(session, start, now)
+    print(start.isoformat(), end.isoformat())
+    for user in config['users']:
+        personal = _get_personally_resolved(resolved, user)
+        print("{}\t{}".format(user.name, len(personal)))
 
 if __name__ == '__main__':
     main()
