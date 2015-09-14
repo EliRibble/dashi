@@ -15,6 +15,17 @@ import subprocess
 
 LOGGER = logging.getLogger('overview-by-date')
 
+def _has_known_author(users, commit):
+    for user in users:
+        if commit['author'] in user.aliases:
+            return True
+    return False
+
+def _check_authors(users, commits):
+    for commit in commits:
+        if not _has_known_author(users, commit):
+            LOGGER.info("Author %s is not known from %s", commit['author'], commit)
+
 def _show_summary(users, timepoint, all_commits):
     start, end = dashi.time.get_checkpoint(timepoint)
     commits_between = dashi.git.commits_between(start, end, all_commits)
@@ -40,6 +51,7 @@ def main():
     timepoint = now - datetime.timedelta(days=7*3)
     start, end = dashi.time.get_checkpoint(timepoint)
     all_commits = dashi.git.get_all_commits(config, start)
+    _check_authors(config['users'], all_commits)
     users = config['users'] if args.only is None else [dashi.config.get_user(config, args.only)]
     headers = ['Date', 'Total'] + [user.first_name for user in users]
     print('\t'.join(headers))
