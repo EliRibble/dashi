@@ -34,3 +34,6 @@ def checkpoints_since(start):
         result.append(get_checkpoint(timepoint))
         timepoint = timepoint + in_a_week
     return result
+
+def utcnow():
+    return datetime.datetime.utcnow().replace(tzinfo=UTC())
