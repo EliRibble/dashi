@@ -1,36 +1,36 @@
 #!/usr/bin/env python
 import argparse
 import dateutil.parser
+import dashi.debugging
 import dashi.config
 import dashi.sentry
 import dashi.time
 import datetime
 import logging
-import pdb
 import pprint
 import requests
 import sys
 
 LOGGER = logging.getLogger('jira-summary')
 
-def info(type, value, tb):
-    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-        sys.__excepthook__(type, value, tb)
-    else:
-        import traceback
-        traceback.print_exception(type, value, tb)
-        pdb.pm()
-sys.excepthook = info
-
-def _resolved_between(issue, start, end):
+def _get_resolved_datetime(issue):
     for action in issue['activity']:
         created = dateutil.parser.parse(action['dateCreated'])
-        if all([
-            action['type'] == 'set_resolved',
-            created > start,
-            created < end]):
-            return True
-    return False
+        if action['type'] == 'set_resolved':
+            return created
+
+def _resolved_between(issue, start, end):
+    resolved = _get_resolved_datetime(issue)
+    return resolved and end > resolved > start
+
+def _get_resolved_by(issue, users):
+    for action in issue['activity']:
+        created = dateutil.parser.parse(action['dateCreated'])
+        if action['type'] == 'set_resolved':
+            for user in users:
+                if action['user'] and action['user']['name'] in user.aliases:
+                    return user
+    return None
 
 def _resolved_by(issue, user):
     for action in issue['activity']:
@@ -55,7 +55,6 @@ def _show_summary(issues, timepoint, user):
     print("\t".join(map(str, [
         start,
         end,
-        len(resolved),
         len(personally),
     ])))
 
@@ -63,25 +62,37 @@ def main():
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     logging.getLogger('requests').setLevel(logging.WARN)
+    dashi.debugging.install_hook()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('user', help='The user to show stats for')
+    parser.add_argument('--only', help='The user to show stats for')
     args = parser.parse_args()
 
     config = dashi.config.parse()
-    user = dashi.config.get_user(config, args.user)
+    users = config['users'] if args.only is None else [dashi.config.get_user(config, args.user)]
 
     session = dashi.sentry.create_session(config['sentry']['username'], config['sentry']['password'])
     all_issues = [dashi.sentry.get_resolved_issues(session, project) for project in config['sentry']['projects']]
     all_issues = [issue for group in all_issues for issue in group]
 
-    print("Start Date\tEnd Date\tResolved\tPsnl")
-    timepoint = datetime.datetime(2015, 8, 1, 0, 0, 1)
-    now = datetime.datetime.utcnow()
-    while timepoint < now + datetime.timedelta(days=7):
-        summary = _show_summary(all_issues, timepoint, user)
-        timepoint = timepoint + datetime.timedelta(days=7)
+    now = dashi.time.utcnow()
+    timepoint = now - datetime.timedelta(days=7*2)
+    start, end = dashi.time.get_checkpoint(timepoint)
+    for user in users:
+        print("*** {} ***".format(user.name))
+        print("Issue\tResolved")
 
+        for issue in all_issues:
+            if not _resolved_between(issue, start, now):
+                continue
+            _user = _get_resolved_by(issue, users)
+            if not user:
+                LOGGER.warning("Could not identify user that resolved %s", issue)
+                continue
+            if _user != user:
+                continue
+            resolved = _get_resolved_datetime(issue)
+            print("{}\t{}".format(issue['permalink'], resolved))
 
 if __name__ == '__main__':
     main()
