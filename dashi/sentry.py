@@ -9,7 +9,7 @@ def create_session(username, password):
     assert response.ok
 
     payload = {
-        "csrfmiddlewaretoken"   : response.cookies['csrftoken'],
+        "csrfmiddlewaretoken"   : response.cookies['csrf'],
         "op"                    : "login",
         "username"              : username,
         "password"              : password,
