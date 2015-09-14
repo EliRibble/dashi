@@ -28,7 +28,7 @@ def _get_personally_resolved(resolved, user):
         try:
             assignee = issue['fields']['assignee']
             key = assignee['key'] if assignee is not None else None
-            if key == user.config['jirakey']:
+            if key == user.config.get('jirakey', None):
                 results.append(issue)
         except Exception as e:
             import pdb;pdb.set_trace()
