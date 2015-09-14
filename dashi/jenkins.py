@@ -25,6 +25,27 @@ def get_test_results_by_time_periods(config, repos, periods):
             repo['name']    : get_test_results_for_repo(jenkins, repo, periods)
         for repo in repos}
 
+def show_latest_build(jenkins, reponame):
+    try:
+        job = jenkins[reponame]
+    except UnknownJob:
+        LOGGER.warning("Unable to get data on Jenkins job %s", reponame)
+        return
+    build_ids = job.get_build_ids()
+    latest_build = max(build_ids)
+    build_id = latest_build
+    while True:
+        build = job.get_build(build_id)
+        try:
+            resultset = build.get_resultset()
+            print("\t".join([str(x) for x in (reponame, build.buildno, build.get_timestamp().isoformat(), len(resultset))]))
+            return
+        except NoResults:
+            build_id -= 1
+            if build_id < latest_build - 3:
+                LOGGER.warning("Cannot find useful build for %s", reponame)
+                return
+
 def get_test_results_for_repo(jenkins, repo, periods):
     try:
         job = jenkins[repo['name']]

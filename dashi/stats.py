@@ -24,12 +24,6 @@ def show_stats_for(user):
         print('\t'.join(map(str, [stat['start'].date(), stat['end'].date(), stat['total'], stat['mine']])))
 
 def show_jenkins_stats(config):
-    periods = dashi.time.checkpoints_since(datetime.datetime(2015, 1, 1, 0, 0, 0, 1))
-    test_results = dashi.jenkins.get_test_results_by_time_periods(config, config['repositories'], periods)
-    for repo in test_results.keys():
-        for result in test_results[repo]:
-            if result['tests'] > 0:
-                print("{}\t{}\t{}".format(
-                    result['start'].isoformat(),
-                    result['end'].isoformat(),
-                    result['tests']))
+    jenkins = dashi.jenkins.connect(config)
+    for repo in config['repositories']:
+        dashi.jenkins.show_latest_build(jenkins, repo['name'])

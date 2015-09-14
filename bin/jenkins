@@ -11,6 +11,7 @@ import sys
 def main():
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger('requests.packages.urllib3').setLevel(logging.WARNING)
     dashi.debugging.install_hook()
 
     config = dashi.config.parse()
