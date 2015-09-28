@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+import dashi.debugging
+import dashi.config
+import dashi.git
+import logging
+import os
+import subprocess
+
+LOGGER = logging.getLogger(__name__)
+
+def _clone_repo(target, source):
+    if os.path.exists(target):
+        print("Skipping checkout of {}".format(target))
+        return
+    command = [
+         'git',
+         'clone',
+         source,
+         target,
+     ]
+    return subprocess.check_output(command)
+
+def _update_repo(target):
+    os.chdir(target)
+    command = ['git', 'checkout', 'master']
+    try:
+        subprocess.check_output(command)
+    except subprocess.CalledProcessError as e:
+        raise Exception("Failed to checkout master for repository at {}: {}".format(target, e))
+
+    command = ['git', 'pull']
+    try:
+        return subprocess.check_output(command)
+    except subprocess.CalledProcessError as e:
+        raise Exception("Failed to update repository at {}: {}".format(target, e))
+
+def _create_virtualenv(target):
+    if os.path.exists(os.path.join(target, 've')):
+        print("Skipping virtualenv for {}".format(target))
+        return
+
+    os.chdir(target)
+    command = ['virtualenv', '-p', 'python3', 've']
+    subprocess.check_output(command)
+    print("Created virtualenv for {}".format(target))
+
+def _install_dependencies(target):
+    os.chdir(target)
+    pip = os.path.join(target, 've', 'bin', 'pip')
+    command = [pip, 'install', '-e', '.[develop]']
+    subprocess.check_output(command)
+
+def main():
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    dashi.debugging.install_hook()
+
+    config = dashi.config.parse()
+    for repo in config['repositories']:
+        target = os.path.join(config['repositoryroot'], repo['name'])
+        source = 'git@bitbucket.org:Authentise/{}.git'.format(repo)
+        if not os.path.exists(target):
+            output = _clone_repo(target, source)
+            _create_virtualenv(target)
+            try:
+                _install_dependencies(target)
+            except subprocess.CalledProcessError as e:
+                print("Failed to install dependencies for {}: {}".format(target, e))
+        else:
+            output = _update_repo(target)
+
+if __name__ == '__main__':
+    main()
