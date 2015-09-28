@@ -1,7 +1,6 @@
 import calendar
 import datetime
 
-
 ZERO = datetime.timedelta(0)
 HOUR = datetime.timedelta(hours=1)
 

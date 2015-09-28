@@ -1,10 +1,11 @@
+import logging
+import os
+import sqlite3
+
 import asyncio
 import dashi.config
 import dashi.git
 import dashi.jenkins
-import logging
-import os
-import sqlite3
 
 LOGGER = logging.getLogger(__name__)
 

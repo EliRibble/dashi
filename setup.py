@@ -1,9 +1,10 @@
-from setuptools import setup
 import contextlib
 import imp
 import os
 import re
 import subprocess
+
+from setuptools import setup
 
 DATA_ROOTS = []
 PROJECT = 'dashi'

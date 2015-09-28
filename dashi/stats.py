@@ -1,14 +1,16 @@
 import collections
+import datetime
+import functools
+import logging
+import os
+import pprint
+
+import jinja2
+
 import dashi.config
 import dashi.db
 import dashi.jenkins
 import dashi.time
-import datetime
-import functools
-import jinja2
-import logging
-import os
-import pprint
 
 LOGGER = logging.getLogger(__name__)
 

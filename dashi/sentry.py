@@ -1,4 +1,5 @@
 import logging
+
 from requests import Session
 
 LOGGER = logging.getLogger(__name__)
@@ -37,4 +38,3 @@ def get_resolved_issues(session, project):
 #def get_resolved_issues(project):
     #'https://beta.getsentry.com/api/0/groups/69931207/'
     #requests.get('https://app.getsentry.com/api/authentise/dev-hoth/poll/?status=1')
-

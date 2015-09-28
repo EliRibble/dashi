@@ -1,4 +1,5 @@
 import flask
+
 import pygal
 
 blueprint = flask.Blueprint('api', __name__)

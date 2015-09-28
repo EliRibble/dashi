@@ -1,6 +1,7 @@
-from jenkinsapi.jenkins import Jenkins
-from jenkinsapi.custom_exceptions import NoResults, UnknownJob
 import logging
+
+from jenkinsapi.custom_exceptions import NoResults, UnknownJob
+from jenkinsapi.jenkins import Jenkins
 
 LOGGER = logging.getLogger(__name__)
 

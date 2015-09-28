@@ -56,5 +56,3 @@ def get_user(config, username):
         raise Exception("Username '{}' matched {}".format(username, ', '.join([m['name'] for m in matches])))
     else:
         raise Exception("Unable to match user '{}'".format(username))
-
-

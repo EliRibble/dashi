@@ -1,14 +1,16 @@
-import asyncio
 import collections
-import dashi.config
-import dashi.db
-import dashi.time
 import datetime
 import functools
-import jinja2
 import logging
 import os
 import pprint
+
+import jinja2
+
+import asyncio
+import dashi.config
+import dashi.db
+import dashi.time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,4 +37,3 @@ def go():
     path = os.path.join(config['paths']['output'], 'index.html')
     with open(path, 'w') as f:
         f.write(output)
-

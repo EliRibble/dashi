@@ -1,12 +1,14 @@
-import aiohttp
-import asyncio
 import base64
-import dateutil
 import json
 import logging
 import os
 import re
 import subprocess
+
+import dateutil
+
+import aiohttp
+import asyncio
 
 LOGGER = logging.getLogger(__name__)
 
@@ -191,4 +193,3 @@ def _check_unrecognized_commiters(users, commits):
 
 def commits_between(start, end, all_commits):
     return [commit for commit in all_commits if end > commit['datetime'] > start]
-

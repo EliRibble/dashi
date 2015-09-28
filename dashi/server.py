@@ -1,5 +1,6 @@
-import dashi.api
 import flask
+
+import dashi.api
 import pygal
 
 
