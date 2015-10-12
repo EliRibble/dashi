@@ -14,23 +14,32 @@ import dashi.time
 
 LOGGER = logging.getLogger(__name__)
 
+class Environment():
+    def __init__(self):
+        self.config = dashi.config.parse()
+        self.template_loader = jinja2.FileSystemLoader(searchpath=self.config['paths']['template'])
+        self.template_environment = jinja2.Environment(loader=self.template_loader)
+
+        self.output_path = self.config['paths']['output']
+
+    def setup_output(self):
+        try:
+            os.mkdir(self.output_path)
+            LOGGER.info("Created %s", self.output_path)
+        except OSError:
+            pass
+
+    def write_file(self, templatename, context):
+        template = self.template_environment.get_template(templatename)
+        output = template.render(**context)
+
+        path = os.path.join(self.output_path, templatename)
+        with open(path, 'w') as f:
+            f.write(output)
+            LOGGER.debug("Wrote %s", path)
+
 @asyncio.coroutine
 def go():
-    config = dashi.config.parse()
-    template_loader = jinja2.FileSystemLoader(searchpath=config['paths']['template'])
-    template_environment = jinja2.Environment(loader=template_loader)
-
-    output_path = config['paths']['output']
-    try:
-        os.mkdir(output_path)
-        LOGGER.info("Created %s", output_path)
-    except OSError:
-        pass
-
-    template = template_environment.get_template('index.html')
-    output = template.render()
-
-    path = os.path.join(output_path, 'index.html')
-    with open(path, 'w') as f:
-        f.write(output)
-        LOGGER.debug("Wrote %s", path)
+    env = Environment()
+    env.setup_output()
+    env.write_file('index.html', {})
