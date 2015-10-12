@@ -20,20 +20,17 @@ def go():
     template_loader = jinja2.FileSystemLoader(searchpath=config['paths']['template'])
     template_environment = jinja2.Environment(loader=template_loader)
 
-    connection = dashi.db.connection()
-
-    authors = dashi.db.get_all_authors(connection)
-    return
-
-    LOGGER.debug(repo_stats)
+    output_path = config['paths']['output']
     try:
-        os.mkdir(config['paths']['output'])
+        os.mkdir(output_path)
+        LOGGER.info("Created %s", output_path)
     except OSError:
         pass
 
     template = template_environment.get_template('index.html')
-    output = template.render(repo_stats=repo_stats)
+    output = template.render()
 
-    path = os.path.join(config['paths']['output'], 'index.html')
+    path = os.path.join(output_path, 'index.html')
     with open(path, 'w') as f:
         f.write(output)
+        LOGGER.debug("Wrote %s", path)
