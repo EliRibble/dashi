@@ -15,8 +15,8 @@ import dashi.time
 LOGGER = logging.getLogger(__name__)
 
 class Environment():
-    def __init__(self):
-        self.config = dashi.config.parse()
+    def __init__(self, config):
+        self.config = config
         self.template_loader = jinja2.FileSystemLoader(searchpath=self.config['paths']['template'])
         self.template_environment = jinja2.Environment(loader=self.template_loader)
 
@@ -39,8 +39,10 @@ class Environment():
             LOGGER.debug("Wrote %s", path)
 
 @asyncio.coroutine
-def go():
-    env = Environment()
+def go(config):
+    LOGGER.info("Gathing data...")
+
+    env = Environment(config)
     env.setup_output()
     env.write_file('index.html', {})
     env.write_file('commits.html', {})
