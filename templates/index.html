@@ -15,10 +15,9 @@
     <body>
         <div class="container">
             <h1>Dashi</h1>
-            {% for repo, stats in repo_stats.items() %}
-                <h2>{{ repo }}</h2>
-                {% include 'commit-counts.html' %}
-            {% endfor %}
+            <ul>
+                <li><a href="/commits.html">Commits</a></li>
+            </ul>
         </div>
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>

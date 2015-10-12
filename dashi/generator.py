@@ -43,3 +43,4 @@ def go():
     env = Environment()
     env.setup_output()
     env.write_file('index.html', {})
+    env.write_file('commits.html', {})
