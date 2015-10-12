@@ -2,22 +2,16 @@
 import asyncio
 import bdb
 import dashi.generator
+import dashi.debugging
 import logging
 import pdb
 import sys
 
-def info(type, value, tb):
-    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-        sys.__excepthook__(type, value, tb)
-    else:
-        import traceback
-        traceback.print_exception(type, value, tb)
-        pdb.pm()
-sys.excepthook = info
 
 def main():
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
+    dashi.debugging.install_hook()
 
     loop = asyncio.get_event_loop()
     try:
