@@ -58,3 +58,7 @@ target/
 
 # Stuff from my local VE install
 *.egg-info
+
+# Avoid stuff related to my local build because I'm lazy
+static
+repos
