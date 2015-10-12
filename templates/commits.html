@@ -1,3 +1,26 @@
 <html>
-    commits
+    <h3>All commits from {{ start }} to {{ end }}</h3>
+    {% for user, user_commits in commits.items() %}
+    <h4>{{ user }}</h4>
+    <table>
+        <tr>
+            <th>Author</th>
+            <th>Project</th>
+            <th>Datetime</th>
+            <th>Inserts</th>
+            <th>Deletes</th>
+            <th>Files</th>
+        </tr>
+        {% for commit in user_commits %}
+        <tr>
+            <td>{{ commit.author }}</td>
+            <td>{{ commit.repo }}</td>
+            <td>{{ commit.datetime.isoformat() }}</td>
+            <td>{{ commit.inserts }}</td>
+            <td>{{ commit.deletes }}</td>
+            <td>{{ commit.files }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endfor %}
 </html>

@@ -1,3 +1,4 @@
+import asyncio
 import collections
 import datetime
 import functools
@@ -7,7 +8,6 @@ import pprint
 
 import jinja2
 
-import asyncio
 import dashi.config
 import dashi.db
 import dashi.time
@@ -39,10 +39,30 @@ class Environment():
             LOGGER.debug("Wrote %s", path)
 
 @asyncio.coroutine
-def go(config):
+def update_data(config):
+    LOGGER.info("Updating data...")
+    yield from asyncio.wait([dashi.git.update_repo(config, repo) for repo in config['repositories']])
     LOGGER.info("Gathing data...")
+
+@asyncio.coroutine
+def go(config, args):
+    if not args.no_update:
+        yield from update_data(config)
+
+    start, end = dashi.time.get_checkpoint(datetime.datetime.utcnow() - datetime.timedelta(days=14))
+    all_commits = yield from dashi.git.get_all_commits(config, start)
+    LOGGER.debug("%d commits", len(all_commits))
+    LOGGER.info("Gather complete")
 
     env = Environment(config)
     env.setup_output()
-    env.write_file('index.html', {})
-    env.write_file('commits.html', {})
+
+    context = {
+        'commits'   : all_commits,
+        'end'       : end,
+        'start'     : start,
+        'users'     : config['users'],
+    }
+    LOGGER.debug(all_commits['Eli Ribble'][0])
+    env.write_file('index.html', context)
+    env.write_file('commits.html', context)

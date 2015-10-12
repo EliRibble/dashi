@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import logging
@@ -5,10 +6,9 @@ import os
 import re
 import subprocess
 
-import dateutil
-
 import aiohttp
-import asyncio
+import dateutil
+import dateutil.parser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,49 +69,6 @@ class Bitbucket(Repo):
                 raise Exception("Failed to get commits at {}: {} {}".format(url, response.status, text))
         raise Exception("Giving up on {}, too throttled".format(url))
 
-    @asyncio.coroutine
-    def get_commits(self):
-        url = 'https://bitbucket.org/api/2.0/repositories/{}/{}/commits'.format(self.config['owner'], self.name)
-        data = yield from self.request(url)
-        commits = data['values']
-        LOGGER.debug("Got %s commits for %s", data['pagelen'], self.name)
-        while 'next' in data:
-            data = yield from self.request(data['next'])
-            LOGGER.debug("Got %s more commits for %s", data['pagelen'], self.name)
-            commits += data['values']
-        return commits
-
-@asyncio.coroutine
-def get_all_commits(config):
-    results = {}
-    for repo in config['respositories']:
-        commits = yield from get_commits(config, repo)
-        results[repo] = commits
-    return results
-
-@asyncio.coroutine
-def get_commits(config, repoconfig):
-    _repo = repo(config, repoconfig)
-    commits = yield from _repo.get_commits()
-    return commits
-
-@asyncio.coroutine
-def get_all_commits_simultaneously(config):
-    results = {}
-    def _on_done(name, future):
-        exc = future.exception()
-        if exc:
-            raise Exception("Failed to get information for {}: {}".format(name, exc))
-        results[name] = future.result()
-
-    coroutines = []
-    for repo in config['respositories']:
-        coro = asyncio.async(get_commits(config, repo))
-        coro.add_done_callback(functools.partial(_on_done, repo))
-        coroutines.append(coro)
-    yield from asyncio.wait(coroutines)
-    return results
-
 FILE_PATTERN = re.compile(r"(?P<files>\d+) file(s)? changed")
 INSERT_PATTERN = re.compile(r"(?P<inserts>\d+) insertion(s)?\(\+\)")
 DELETE_PATTERN = re.compile(r"(?P<deletes>\d+) deletion(s)?\(\-\)")
@@ -159,18 +116,19 @@ def _parse_commits(output):
         commits.append(commit)
     return commits
 
+@asyncio.coroutine
 def get_commits(config, repo, start, end=None):
-    path = os.path.join(config['repositoryroot'], repo['name'])
-    os.chdir(path)
+    path = repo['path']
     command = [
             'git',
             'log',
             '--pretty=format:"%h %aI %aE"',
             '--shortstat',
+            '--all',
             '--after={}'.format(start.isoformat())]
     if end is not None:
         command.append('--before={}'.format(end.isoformat()))
-    LOGGER.debug("Executing %s in %s", " ".join(command), path)
+    stdout, stderr = yield from run_process(command, chdir=path)
     output = subprocess.check_output(command)
     output = output.decode('utf-8')
     commits = _parse_commits(output)
@@ -178,12 +136,23 @@ def get_commits(config, repo, start, end=None):
         commit['repo'] = repo['name']
     return commits
 
+def sort_commits(user, commits):
+    def _key(commit):
+        return ':'.join([commit['repo'], commit['datetime'].isoformat(), commit['hash']])
+    my_commits = [commit for commit in commits if commit['author'] in user.aliases]
+    return sorted(my_commits, key=_key)
+
+def collate_commits(users, commits):
+    return {user.name: sort_commits(user, commits) for user in users}
+
+@asyncio.coroutine
 def get_all_commits(config, timepoint):
     all_commits = []
     for repo in config['repositories']:
-        commits = get_commits(config, repo, timepoint)
+        commits = yield from get_commits(config, repo, timepoint)
         all_commits += commits
     _check_unrecognized_commiters(config['users'], all_commits)
+    all_commits = collate_commits(config['users'], all_commits)
     return all_commits
 
 def _check_unrecognized_commiters(users, commits):
@@ -193,3 +162,20 @@ def _check_unrecognized_commiters(users, commits):
 
 def commits_between(start, end, all_commits):
     return [commit for commit in all_commits if end > commit['datetime'] > start]
+
+@asyncio.coroutine
+def run_process(command, chdir=None):
+    if chdir:
+        os.chdir(chdir)
+        LOGGER.debug("Executing %s in %s", " ".join(command), chdir)
+    process = yield from asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.PIPE)
+    (stdout, stderr) = yield from process.communicate()
+    if process.returncode != 0:
+        raise Exception("Failed to update git repository %s", repo)
+    return stdout, stderr
+
+@asyncio.coroutine
+def update_repo(config, repo):
+    command = ['git', 'pull']
+    stdout, stderr = yield from run_process(command, repo['path'])
+    LOGGER.debug("Updated data in repo %s", repo['name'])
