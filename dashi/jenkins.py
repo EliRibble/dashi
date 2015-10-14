@@ -13,6 +13,10 @@ def _add_build(results, build):
             r['tests'] = max(r['tests'], len(resultset))
             LOGGER.debug("Added %s with %s tests", build.name, len(resultset))
 
+def get_jenkins_stats(config):
+    jenkins = connect(config)
+    return {job : get_latest_build(jenkins, job) for job in config['jenkins']['jobs']}
+
 def connect(config):
     return Jenkins(
         config['jenkins']['url'],
@@ -20,34 +24,33 @@ def connect(config):
         password=config['jenkins']['password'],
     )
 
-def get_test_results_by_time_periods(config, repos, periods):
+def get_test_results_by_time_periods(config, repos):
     jenkins = connect(config)
     return {
-            repo['name']    : get_test_results_for_repo(jenkins, repo, periods)
+            repo['name']    : get_test_results_for_repo(jenkins, repo)
         for repo in repos}
 
-def show_latest_build(jenkins, reponame):
+def get_latest_build(jenkins, jobname):
     try:
-        job = jenkins[reponame]
+        job = jenkins[jobname]
     except UnknownJob:
-        LOGGER.warning("Unable to get data on Jenkins job %s", reponame)
+        LOGGER.warning("Unable to get data on Jenkins job %s", jobname)
         return
     build_ids = job.get_build_ids()
     latest_build = max(build_ids)
-    build_id = latest_build
-    while True:
+    for build_id in range(latest_build)[::-1]:
         build = job.get_build(build_id)
         try:
             resultset = build.get_resultset()
-            print("\t".join([str(x) for x in (reponame, build.buildno, build.get_timestamp().isoformat(), len(resultset))]))
-            return
+            return {
+                    'build'     : build.buildno,
+                    'timestamp' : build.get_timestamp(),
+                    'tests'     : len(resultset),
+                    }
         except NoResults:
-            build_id -= 1
-            if build_id < latest_build - 3:
-                LOGGER.warning("Cannot find useful build for %s", reponame)
-                return
+            pass
 
-def get_test_results_for_repo(jenkins, repo, periods):
+def get_test_results_for_repo(jenkins, repo):
     try:
         job = jenkins[repo['name']]
     except UnknownJob:

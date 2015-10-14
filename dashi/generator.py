@@ -51,6 +51,8 @@ def go(config, args):
     LOGGER.debug("%d commits", len(all_commits))
     LOGGER.info("Gather complete")
 
+    jenkins = dashi.jenkins.get_jenkins_stats(config)
+
     env = Environment(config)
     env.setup_output()
 
@@ -58,6 +60,7 @@ def go(config, args):
         'commit_count'  : sum([len(info['commits']) for info in all_commits.values()]),
         'commits'       : all_commits,
         'end'           : end,
+        'jenkins'       : jenkins,
         'start'         : start,
         'users'         : config['users'],
     }
@@ -65,3 +68,4 @@ def go(config, args):
     LOGGER.debug(context['commit_count'])
     env.write_file('index.html', context)
     env.write_file('commits.html', context)
+    env.write_file('jenkins.html', context)
