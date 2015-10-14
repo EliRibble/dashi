@@ -142,8 +142,15 @@ def sort_commits(user, commits):
     my_commits = [commit for commit in commits if commit['author'] in user.aliases]
     return sorted(my_commits, key=_key)
 
+def percentage(user, commits):
+    return len([commit for commit in commits if commit['author'] in user.aliases]) / float(len(commits))
+
 def collate_commits(users, commits):
-    return {user.name: sort_commits(user, commits) for user in users}
+    return {
+    user.name           : {
+        'commits'       : sort_commits(user, commits),
+        'percentage'    : round(percentage(user, commits), 2) * 100,
+    } for user in users}
 
 @asyncio.coroutine
 def get_all_commits(config, timepoint):

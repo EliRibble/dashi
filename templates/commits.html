@@ -1,13 +1,30 @@
 {% extends "layout.html" %}
 {% block body %}
-<h1>All commits from {{ start.date() }} to {{ end.date() }}</h1>
+<h1>Commits from {{ start.date() }} to {{ end.date() }}</h1>
 <ul>
     {% for user in commits.keys() %}
     <li><a href="#{{ user }}">{{ user }}</a></li>
     {% endfor %}
 </ul>
 
-{% for user, user_commits in commits.items() %}
+<h2>Total commits: {{ commit_count }}</h2>
+
+<table class="table table-striped table-bordered">
+    <tr>
+        <th>User</th>
+        <th>Total commits</th>
+        <th>Percentage (of {{ commit_count }})</th>
+    </tr>
+    {% for user, commit_info in commits.items() %}
+    <tr>
+        <td>{{ user }}</td>
+        <td>{{ commit_info.commits | length }}</td>
+        <td>{{ commit_info.percentage }}%</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% for user, commit_info in commits.items() %}
 <a name="{{ user }}"><h4>{{ user }}</h4></a>
 <table class="table table-striped table-bordered table-condensed">
     <tr>
@@ -18,7 +35,7 @@
         <th>Deletes</th>
         <th>Files</th>
     </tr>
-    {% for commit in user_commits %}
+    {% for commit in commit_info.commits %}
     <tr>
         <td>{{ commit.author }}</td>
         <td>{{ commit.repo }}</td>

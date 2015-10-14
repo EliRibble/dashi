@@ -58,11 +58,13 @@ def go(config, args):
     env.setup_output()
 
     context = {
-        'commits'   : all_commits,
-        'end'       : end,
-        'start'     : start,
-        'users'     : config['users'],
+        'commit_count'  : sum([len(info['commits']) for info in all_commits.values()]),
+        'commits'       : all_commits,
+        'end'           : end,
+        'start'         : start,
+        'users'         : config['users'],
     }
-    LOGGER.debug(all_commits['Eli Ribble'][0])
+
+    LOGGER.debug(context['commit_count'])
     env.write_file('index.html', context)
     env.write_file('commits.html', context)
