@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block body %}
+<h1>Jira from {{ start.date() }} to {{ end.date() }}</h1>
+<h2>Tickets Created: {{ jira.created }}</h2>
+<h2>Tickets Resolved: {{ jira.resolved }}</h2>
+<h2>Created without estimate: {{ jira.without_estimate }}</h2>
+<h2>Created without epic: {{ jira.without_epic }}</h2>
+<table class="table table-striped table-bordered">
+    <tr>
+        <th>User</th>
+        <th>Tickets completed</th>
+    </tr>
+    {% for user, resolved in jira.personal.items() %}
+    <tr>
+        <td>{{ user }}</td>
+        <td>{{ resolved }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

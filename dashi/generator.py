@@ -7,6 +7,7 @@ import jinja2
 
 import dashi.config
 import dashi.db
+import dashi.jira
 import dashi.time
 
 LOGGER = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ def go(config, args):
 
     jenkins = dashi.jenkins.get_jenkins_stats(config)
 
+    jira = dashi.jira.get_statistics(config, start, end)
+
     env = Environment(config)
     env.setup_output()
 
@@ -61,6 +64,7 @@ def go(config, args):
         'commits'       : all_commits,
         'end'           : end,
         'jenkins'       : jenkins,
+        'jira'          : jira,
         'start'         : start,
         'users'         : config['users'],
     }
@@ -69,3 +73,4 @@ def go(config, args):
     env.write_file('index.html', context)
     env.write_file('commits.html', context)
     env.write_file('jenkins.html', context)
+    env.write_file('jira.html', context)
