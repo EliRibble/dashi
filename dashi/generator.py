@@ -7,7 +7,9 @@ import jinja2
 
 import dashi.config
 import dashi.db
+import dashi.jenkins
 import dashi.jira
+import dashi.sentry
 import dashi.time
 
 LOGGER = logging.getLogger(__name__)
@@ -50,11 +52,13 @@ def go(config, args):
     start, end = dashi.time.get_checkpoint(datetime.datetime.utcnow() - datetime.timedelta(days=14))
     all_commits = yield from dashi.git.get_all_commits(config, start)
     LOGGER.debug("%d commits", len(all_commits))
-    LOGGER.info("Gather complete")
 
     jenkins = dashi.jenkins.get_jenkins_stats(config)
 
     jira = dashi.jira.get_statistics(config, start, end)
+
+    sentry = dashi.sentry.get_statistics(config, start, end)
+    LOGGER.info("Gather complete")
 
     env = Environment(config)
     env.setup_output()
@@ -65,6 +69,7 @@ def go(config, args):
         'end'           : end,
         'jenkins'       : jenkins,
         'jira'          : jira,
+        'sentry'        : sentry,
         'start'         : start,
         'users'         : config['users'],
     }
@@ -74,3 +79,4 @@ def go(config, args):
     env.write_file('commits.html', context)
     env.write_file('jenkins.html', context)
     env.write_file('jira.html', context)
+    env.write_file('sentry.html', context)
