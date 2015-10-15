@@ -49,7 +49,7 @@ def go(config, args):
     if not args.no_update:
         yield from update_data(config)
 
-    start, end = dashi.time.get_checkpoint(datetime.datetime.utcnow() - datetime.timedelta(days=14))
+    start, end = dashi.time.get_checkpoint(datetime.datetime.utcnow() - datetime.timedelta(days=7))
     all_commits = yield from dashi.git.get_all_commits(config, start)
     LOGGER.debug("%d commits", len(all_commits))
 
