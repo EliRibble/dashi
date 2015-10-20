@@ -27,7 +27,7 @@ class User():
         return str(self)
 
 def _load_config():
-    for path in ['dashi.conf', os.path.join(os.environ['HOME'], '.dashi'), '/etc/dashi.conf']:
+    for path in ['dashi.conf', os.path.join(os.environ['HOME'], '.dashi', 'config'), '/etc/dashi.conf']:
         try:
             with open(path, 'r') as f:
                 return json.load(f)
