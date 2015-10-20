@@ -39,6 +39,7 @@ class Environment():
 
         path = path or os.path.join(self.archive_path, templatename)
         path = os.path.join(self.output_path, path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w') as f:
             f.write(output)
             LOGGER.debug("Wrote %s", path)
