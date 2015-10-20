@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
+import pickle
 
 import jinja2
 
@@ -11,16 +12,19 @@ import dashi.jenkins
 import dashi.jira
 import dashi.sentry
 import dashi.time
+import dashi.upload
 
 LOGGER = logging.getLogger(__name__)
 
 class Environment():
-    def __init__(self, config):
-        self.config = config
-        self.template_loader = jinja2.FileSystemLoader(searchpath=self.config['paths']['template'])
+    def __init__(self, config, end):
+        self.config               = config
+        self.end                  = end
+        self.template_loader      = jinja2.FileSystemLoader(searchpath=self.config['paths']['template'])
         self.template_environment = jinja2.Environment(loader=self.template_loader)
 
         self.output_path = self.config['paths']['output']
+        self.archive_path = self.end.date().isoformat()
 
     def setup_output(self):
         try:
@@ -29,14 +33,34 @@ class Environment():
         except OSError:
             pass
 
-    def write_file(self, templatename, context):
+    def write_file(self, templatename, context, path=None):
         template = self.template_environment.get_template(templatename)
         output = template.render(**context)
 
-        path = os.path.join(self.output_path, templatename)
+        path = path or os.path.join(self.archive_path, templatename)
+        path = os.path.join(self.output_path, path)
         with open(path, 'w') as f:
             f.write(output)
             LOGGER.debug("Wrote %s", path)
+
+    def archives(self):
+        for f in os.listdir(self.output_path):
+            basename = os.path.basename(f)
+            if os.path.isdir(os.path.join(self.output_path, f)) and not basename.startswith('.'):
+                yield f
+
+    def write_files(self, context):
+        context['path'] = "/{}/".format(self.end.date().isoformat())
+
+        context['archives'] = self.archives()
+        for templatepath, outputpath in self.output():
+            self.write_file(templatepath, context, path=outputpath)
+
+    def output(self):
+        yield 'root.html', 'index.html'
+        for template in ('index', 'commits', 'jenkins', 'jira', 'sentry'):
+            templatename = template + '.html'
+            yield templatename, os.path.join(self.archive_path, templatename)
 
 @asyncio.coroutine
 def update_data(config):
@@ -45,7 +69,13 @@ def update_data(config):
     LOGGER.info("Gathing data...")
 
 @asyncio.coroutine
-def go(config, args):
+def get_context(config, args):
+    try:
+        with open(cache_path(), 'rb') as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        pass
+
     if not args.no_update:
         yield from update_data(config)
 
@@ -60,9 +90,6 @@ def go(config, args):
     sentry = dashi.sentry.get_statistics(config, start, end)
     LOGGER.info("Gather complete")
 
-    env = Environment(config)
-    env.setup_output()
-
     context = {
         'commit_count'  : sum([len(info['commits']) for info in all_commits.values()]),
         'commits'       : all_commits,
@@ -73,10 +100,20 @@ def go(config, args):
         'start'         : start,
         'users'         : config['users'],
     }
+    with open(cache_path(), 'wb') as f:
+        pickle.dump(context, f)
+    return context
 
-    LOGGER.debug(context['commit_count'])
-    env.write_file('index.html', context)
-    env.write_file('commits.html', context)
-    env.write_file('jenkins.html', context)
-    env.write_file('jira.html', context)
-    env.write_file('sentry.html', context)
+@asyncio.coroutine
+def go(config, args):
+    context = yield from get_context(config, args)
+
+    env = Environment(config, context['end'])
+    env.setup_output()
+
+    env.write_files(context)
+
+    dashi.upload.go(config, env)
+
+def cache_path():
+    return os.path.join(os.environ['HOME'], '.dashi', 'cache.pickle')

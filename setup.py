@@ -77,6 +77,7 @@ def main():
             author               = "Eli Ribble",
             author_email         = "eli@theribbles.org",
             install_requires    = [
+                'boto3==1.1.4',
                 'Flask==0.10.1',
                 'Jinja2==2.7.3',
                 'pygal==2.0.1',
