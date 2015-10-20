@@ -14,6 +14,9 @@ import dashi.generator
 def main():
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger('botocore').setLevel(logging.INFO)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+
     dashi.debugging.install_hook()
 
     parser = argparse.ArgumentParser()
