@@ -1,10 +1,10 @@
 #!/usr/bin/env python
+# Pylint is stupid about imports in standalone scripts for some reason. Ignore it
+# pylint: disable=no-name-in-module,no-member
 import argparse
 import asyncio
 import bdb
 import logging
-import pdb
-import sys
 
 import dashi.config
 import dashi.debugging
