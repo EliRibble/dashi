@@ -13,12 +13,10 @@ import dateutil.parser
 LOGGER = logging.getLogger(__name__)
 
 def repo(config, repoconfig):
-    if repoconfig['host'] == 'bitbucket':
+    if repoconfig.host == 'bitbucket':
         return Bitbucket(config, repoconfig)
-    elif repoconfig['host'] == 'github':
-        return Github(config, repoconfig)
     else:
-        raise Exception("Invalid repository host '{}'".format(repoconfig['host']))
+        raise Exception("Invalid repository host '{}'".format(repoconfig.host))
 
 def basic_auth(username, password):
     value = '{}:{}'.format(username, password)
@@ -26,30 +24,13 @@ def basic_auth(username, password):
     auth = 'Basic {}'.format(encoded)
     return {'Authorization': auth}
 
-class Repo():
-    def __init__(self, config, repoconfig):
-        self.config = repoconfig
-
-    def commits(self):
-        raise NotImplementedError
-
-class Github(Repo):
-    @asyncio.coroutine
-    def get_commits(self):
-        return []
-
 class ThrottleError(Exception):
     pass
 
-class Bitbucket(Repo):
+class Bitbucket(): # pylint: disable=too-few-public-methods
     def __init__(self, config, repoconfig):
         super().__init__(config, repoconfig)
         self.auth = (config['bitbucket']['username'], config['bitbucket']['password'])
-
-
-    @property
-    def name(self):
-        return self.config['name']
 
     @asyncio.coroutine
     def request(self, url):
@@ -65,7 +46,6 @@ class Bitbucket(Repo):
             elif response.status in (200, 201, 204):
                 return json.loads(text)
             else:
-                import pdb;pdb.set_trace()
                 raise Exception("Failed to get commits at {}: {} {}".format(url, response.status, text))
         raise Exception("Giving up on {}, too throttled".format(url))
 
@@ -117,8 +97,8 @@ def _parse_commits(output):
     return commits
 
 @asyncio.coroutine
-def get_commits(config, repo, start, end=None):
-    path = repo['path']
+def get_commits(repository, start, end=None):
+    path = repository.path
     command = [
             'git',
             'log',
@@ -128,12 +108,12 @@ def get_commits(config, repo, start, end=None):
             '--after={}'.format(start.isoformat())]
     if end is not None:
         command.append('--before={}'.format(end.isoformat()))
-    stdout, stderr = yield from run_process(command, chdir=path)
+    yield from run_process(command, chdir=path)
     output = subprocess.check_output(command)
     output = output.decode('utf-8')
     commits = _parse_commits(output)
     for commit in commits:
-        commit['repo'] = repo['name']
+        commit['repo'] = repository.name
     return commits
 
 def sort_commits(user, commits):
@@ -155,17 +135,28 @@ def collate_commits(users, commits):
 @asyncio.coroutine
 def get_all_commits(config, timepoint):
     all_commits = []
-    for repo in config['repositories']:
-        commits = yield from get_commits(config, repo, timepoint)
+    for repository in config['repositories']:
+        commits = yield from get_commits(config, repository, timepoint)
         all_commits += commits
-    _check_unrecognized_commiters(config['users'], all_commits)
+    all_commits = list(get_recognized_commits(config['users'], all_commits))
     all_commits = collate_commits(config['users'], all_commits)
     return all_commits
 
-def _check_unrecognized_commiters(users, commits):
+def _commit_is_from_a_user(commit, users):
+    for user in users:
+        if commit['author'] in user.aliases:
+            return True
+    return False
+
+def get_recognized_commits(users, commits):
+    unrecognized_authors = set()
     for commit in commits:
-        if not any([commit['author'] in user.aliases for user in users]):
-            LOGGER.warning("Commit %s did not match any known users", commit)
+        if _commit_is_from_a_user(commit, users):
+            yield commit
+        else:
+            unrecognized_authors.add(commit['author'])
+    for author in unrecognized_authors:
+        LOGGER.warning("Found commit from unrecognized user %s. Removing commits from this user", author)
 
 def commits_between(start, end, all_commits):
     return [commit for commit in all_commits if end > commit['datetime'] > start]
@@ -182,7 +173,7 @@ def run_process(command, chdir=None):
     return stdout, stderr
 
 @asyncio.coroutine
-def update_repo(config, repo):
+def update_repo(repository):
     command = ['git', 'pull']
-    stdout, stderr = yield from run_process(command, repo['path'])
-    LOGGER.debug("Updated data in repo %s", repo['name'])
+    yield from run_process(command, repository.path)
+    LOGGER.debug("Updated data in repo %s", repository.name)

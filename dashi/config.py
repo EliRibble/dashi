@@ -28,6 +28,15 @@ class User():
     def __repr__(self):
         return str(self)
 
+class Repository(): # pylint: disable=too-few-public-methods
+    def __init__(self, name, config):
+        self.name = name
+        self.config = config
+
+    @property
+    def path(self):
+        return self.config['path']
+
 def _load_config():
     for path in ['dashi.conf', os.path.join(os.environ['HOME'], '.dashi', 'config'), '/etc/dashi.conf']:
         try:
@@ -43,6 +52,7 @@ def parse():
     config = _load_config()
 
     config['users'] = [User(name, c) for name, c in config['users'].items()]
+    config['repositories'] = [Repository(name, c) for name, c in config['repositories'].items()]
 
     return config
 
