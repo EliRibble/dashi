@@ -3,7 +3,7 @@
 <h1>Sentry issues from {{ start.date() }} to {{ end.date() }}</h1>
 <h2>Total: {{ sentry.issue_count }}</h2>
 
-{% for user, stats in sentry.by_user.items() %}
+{% for user, stats in sentry.get('by_user', {}).items() %}
 <h3>{{ user }} - {{ stats.count }} - {{ stats.percentage }}%</h3>
 <table class="table table-striped table-bordered">
     <tr>

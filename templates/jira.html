@@ -10,7 +10,7 @@
         <th>User</th>
         <th>Tickets completed</th>
     </tr>
-    {% for user, resolved in jira.personal.items() %}
+    {% for user, resolved in jira.get('personal', {}).items() %}
     <tr>
         <td>{{ user }}</td>
         <td>{{ resolved }}</td>
