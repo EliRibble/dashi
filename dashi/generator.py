@@ -114,7 +114,8 @@ def go(config, args):
 
     env.write_files(context)
 
-    dashi.upload.go(config, env)
+    if args.upload:
+        dashi.upload.go(config, env)
 
 def cache_path():
     return os.path.join(os.environ['HOME'], '.dashi', 'cache.pickle')
