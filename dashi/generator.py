@@ -10,6 +10,7 @@ import dashi.config
 import dashi.db
 import dashi.jenkins
 import dashi.jira
+import dashi.json
 import dashi.sentry
 import dashi.time
 import dashi.upload
@@ -55,18 +56,27 @@ class Environment():
 
         context['archives'] = self.archives()
         for templatepath, outputpath in self.output():
-            self.write_file(templatepath, context, path=outputpath)
+            if templatepath:
+                self.write_file(templatepath, context, path=outputpath)
+
+        # upload raw data
+        del context['archives']
+        path = os.path.join(self.output_path, self.archive_path, 'data.json')
+        with open(path, 'w') as f:
+            dashi.json.dump(context, f)
 
     def output(self):
         yield 'root.html', 'index.html'
         for template in ('index', 'commits', 'jenkins', 'jira', 'sentry'):
             templatename = template + '.html'
             yield templatename, os.path.join(self.archive_path, templatename)
+        yield None, os.path.join(self.archive_path, 'data.json')
 
 @asyncio.coroutine
 def update_data(config):
     LOGGER.info("Updating data...")
-    yield from asyncio.wait([dashi.git.update_repo(config, repo) for repo in config['repositories']])
+    coros = [dashi.git.update_repo(repo) for repo in config['repositories']]
+    yield from asyncio.wait(coros)
     LOGGER.info("Gathing data...")
 
 @asyncio.coroutine
