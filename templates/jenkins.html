@@ -11,9 +11,15 @@
     {% for jobname, info in jenkins.items() %}
     <tr>
         <td>{{ jobname }}</td>
-        <td>{{ info.build }}</td>
-        <td>{{ info.timestamp.isoformat() }}</td>
-        <td>{{ info.tests }}</td>
+        {% if info %}
+            <td>{{ info.build }}</td>
+            <td>{{ info.timestamp.isoformat() }}</td>
+            <td>{{ info.tests }}</td>
+        {% else %}
+            <td>None</td>
+            <td>None</td>
+            <td>None</td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>
