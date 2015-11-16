@@ -8,7 +8,7 @@
         <th>Datetime</th>
         <th>Test count</th>
     </tr>
-    {% for jobname, info in jenkins.items() %}
+    {% for jobname, info in jenkins.items()|sort(attribute=0) %}
     <tr>
         <td>{{ jobname }}</td>
         {% if info %}
